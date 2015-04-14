@@ -1,4 +1,5 @@
 === MPower Woocommerce Payment Gateway ===
+Contributors: elnino.akin
 Tags: woocommerce, payment gateway, mobile wallet, fcb speedbank , payment, debit card, credit card, mobilemoney, mobile money, mtn, airtel, ghana, mtn mobile money, airtel mobile money
 Requires at least: 3.0.1
 Tested up to: 4.1.1
