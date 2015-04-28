@@ -4,10 +4,12 @@
   Plugin Name: MPower WooCommerce Payment Gateway
   Plugin URI: http://txtghana.com
   Description: Easily integrate credit card, debit card and mobile money payment into your Woocommerce site and start accepting payment from Ghana.
-  Version: 1.0
+  Version: 1.0.1
   Author: Delu Akin
   Author URI: https://www.facebook.com/deluakin
  */
+
+defined( 'ABSPATH' ) or die( 'No script kiddies please!' );
 
 add_action('plugins_loaded', 'woocommerce_mpowerpayment_init', 0);
 
