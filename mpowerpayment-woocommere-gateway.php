@@ -370,41 +370,41 @@ function woocommerce_mpowerpayment_init() {
                 }
             }
         }
+		
+		
+		static function add_mpower_ghs_currency($currencies) {
+			$currencies['GHS'] = __('Ghana Cedi', 'woocommerce');
+			return $currencies;
+		}
 
-    }
+		static function add_mpower_ghs_currency_symbol($currency_symbol, $currency) {
+			switch (
+			$currency) {
+				case 'GHS': $currency_symbol = 'GHS ';
+					break;
+			}
+			return $currency_symbol;
+		}
 
-    add_filter('woocommerce_currencies', 'add_my_currency');
+		static function woocommerce_add_mpowerpayment_gateway($methods) {
+			$methods[] = 'WC_MPower';
+			return $methods;
+		}
 
-    function add_mpower_my_currency($currencies) {
-        $currencies['GHS'] = __('Ghana Cedi', 'woocommerce');
-        return $currencies;
-    }
+		// Add settings link on plugin page
+		static function woocommerce_add_mpowerpayment_settings_link($links) {
+			$settings_link = '<a href="admin.php?page=wc-settings&tab=checkout&section=wc_mpower">Settings</a>';
+			array_unshift($links, $settings_link);
+			return $links;
+		}
 
-    add_filter('woocommerce_currency_symbol', 'add_mpower_my_currency_symbol', 10, 2);
-
-    function add_mpower_my_currency_symbol($currency_symbol, $currency) {
-        switch (
-        $currency) {
-            case 'GHS': $currency_symbol = 'GHS ';
-                break;
-        }
-        return $currency_symbol;
-    }
-
-    function woocommerce_add_mpowerpayment_gateway($methods) {
-        $methods[] = 'WC_MPower';
-        return $methods;
-    }
-
-    // Add settings link on plugin page
-    function woocommer_add_mpowerpayment_settings_link($links) {
-        $settings_link = '<a href="admin.php?page=wc-settings&tab=checkout&section=wc_mpower">Settings</a>';
-        array_unshift($links, $settings_link);
-        return $links;
     }
 
     $plugin = plugin_basename(__FILE__);
-    add_filter("plugin_action_links_$plugin", 'woocommer_add_mpowerpayment_settings_link');
 
-    add_filter('woocommerce_payment_gateways', 'woocommerce_add_mpowerpayment_gateway');
+	add_filter('woocommerce_currencies', array( 'WC_MPower', 'add_mpower_ghs_currency' ));
+	add_filter('woocommerce_currency_symbol', array( 'WC_MPower', 'add_mpower_my_currency_symbol' ), 10, 2);
+	
+    add_filter("plugin_action_links_$plugin", array( 'WC_MPower', 'woocommerce_add_mpowerpayment_settings_link' ));
+    add_filter('woocommerce_payment_gateways', array( 'WC_MPower', 'woocommerce_add_mpowerpayment_gateway' ));
 }
