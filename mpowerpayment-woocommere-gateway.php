@@ -403,7 +403,7 @@ function woocommerce_mpowerpayment_init() {
     $plugin = plugin_basename(__FILE__);
 
 	add_filter('woocommerce_currencies', array( 'WC_MPower', 'add_mpower_ghs_currency' ));
-	add_filter('woocommerce_currency_symbol', array( 'WC_MPower', 'add_mpower_my_currency_symbol' ), 10, 2);
+	add_filter('woocommerce_currency_symbol', array( 'WC_MPower', 'add_mpower_ghs_currency_symbol' ), 10, 2);
 	
     add_filter("plugin_action_links_$plugin", array( 'WC_MPower', 'woocommerce_add_mpowerpayment_settings_link' ));
     add_filter('woocommerce_payment_gateways', array( 'WC_MPower', 'woocommerce_add_mpowerpayment_gateway' ));
