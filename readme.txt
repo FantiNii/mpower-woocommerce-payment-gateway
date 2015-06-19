@@ -35,6 +35,7 @@ This plugin is meant to be used by merchants in Ghana.
 *   __Accept payment__ via Mobile Money, Credit Cards,  and Debit Card.
 * 	__Seamless integration__ into the WooCommerce checkout page.
 * 	__Add Ghana Cedi__ currency symbol. To select it go to go to __WooCommerce > Settings__ from the left hand menu, then click __General__ from the top tab. From __Currency__ select Ghana Cedi, then click on __Save Changes__ for your changes to be effected.
+* 	__Send SMS notification to customer on successful payment.
 
 
 = Suggestions / Feature Request =
