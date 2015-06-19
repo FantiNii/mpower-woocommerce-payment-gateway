@@ -4,12 +4,17 @@
   Plugin Name: MPower WooCommerce Payment Gateway
   Plugin URI: http://txtghana.com
   Description: Easily integrate credit card, debit card and mobile money payment into your Woocommerce site and start accepting payment from Ghana.
-  Version: 1.0.1
+  Version: 2.0.0
   Author: Delu Akin
   Author URI: https://www.facebook.com/deluakin
  */
 
-defined( 'ABSPATH' ) or die( 'No script kiddies please!' );
+if (!defined('ABSPATH')) {
+    exit;
+}
+if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
+    exit;
+}
 
 add_action('plugins_loaded', 'woocommerce_mpowerpayment_init', 0);
 
@@ -42,6 +47,10 @@ function woocommerce_mpowerpayment_init() {
             $this->test_token = $this->settings['test_token'];
 
             $this->sandbox = $this->settings['sandbox'];
+
+            $this->sms = $this->settings['sms'];
+            $this->sms_url = $this->settings['sms_url'];
+            $this->sms_message = $this->settings['sms_message'];
 
             if ($this->settings['sandbox'] == "yes") {
                 $this->posturl = 'https://app.mpowerpayments.com/sandbox-api/v1/checkout-invoice/create';
@@ -81,6 +90,22 @@ function woocommerce_mpowerpayment_init() {
                 add_action('woocommerce_update_options_payment_gateways_' . $this->id, array(&$this, 'process_admin_options'));
             } else {
                 add_action('woocommerce_update_options_payment_gateways', array(&$this, 'process_admin_options'));
+            }
+        }
+
+        function sendsms($number, $message) {
+            $url = $this->sms_url;
+            $url = str_replace("{NUMBER}", urlencode($number), $url);
+            $url = str_replace("{MESSAGE}", urlencode($message), $url);
+            $url = str_replace("amp;", "&", $url);
+            if (trim($url) <> "") {
+                $curl = curl_init();
+                curl_setopt_array($curl, array(
+                    CURLOPT_RETURNTRANSFER => 1,
+                    CURLOPT_URL => $url
+                ));
+                curl_exec($curl);
+                curl_close($curl);
             }
         }
 
@@ -124,7 +149,20 @@ function woocommerce_mpowerpayment_init() {
                 'sandbox' => array(
                     'title' => __('Sandbox', 'mpower'),
                     'type' => 'checkbox',
-                    'description' => __('Is API in sandbox mode', 'mpower'))
+                    'description' => __('Is API in sandbox mode', 'mpower')),
+                'sms' => array(
+                    'title' => __('SMS Notification', 'mpower'),
+                    'type' => 'checkbox',
+                    'default' => 'no',
+                    'description' => __('Enable SMS notification after sucessful payment on Expresspay', 'mpower')),
+                'sms_url' => array(
+                    'title' => __('Send SMS REST API URL'),
+                    'type' => 'text',
+                    'description' => __('Use {NUMBER} for the customers number, {MESSAGE} should be in place of the message')),
+                'sms_message' => array(
+                    'title' => __('SMS Response'),
+                    'type' => 'textarea',
+                    'description' => __('Use {ORDER-ID} for the order id, {AMOUNT} for amount, , {CUSTOMER} for customer name.'))
             );
         }
 
@@ -135,6 +173,7 @@ function woocommerce_mpowerpayment_init() {
             // Generate the HTML For the settings form.
             $this->generate_settings_html();
             echo '</table>';
+            wp_enqueue_script('expresspay_admin_option_js', plugin_dir_url(__FILE__) . 'assets/js/settings.js', array('jquery'), '1.0.1');
         }
 
         function payment_fields() {
@@ -321,6 +360,7 @@ function woocommerce_mpowerpayment_init() {
                         }
                         if ($status == "completed") {
                             //payment was completely processed
+                            $total_amount = strip_tags($woocommerce->cart->get_cart_total());
                             $message = "Thank you for shopping with us. 
                                 Your transaction was succssful, payment was received. 
                                 You order is currently beign processed. 
@@ -332,7 +372,15 @@ function woocommerce_mpowerpayment_init() {
                             $order->add_order_note($this->msg['message']);
                             $woocommerce->cart->empty_cart();
                             $redirect_url = $this->get_return_url($order);
-                            
+                            $customer = trim($order->billing_last_name . " " . $order->billing_first_name);
+                            if ($this->sms == "yes") {
+                                $phone_no = get_user_meta(get_current_user_id(), 'billing_phone', true);
+                                $sms = $this->sms_message;
+                                $sms = str_replace("{ORDER-ID}", $order_id, $sms);
+                                $sms = str_replace("{AMOUNT}", $total_amount, $sms);
+                                $sms = str_replace("{CUSTOMER}", $customer, $sms);
+                                $this->sendsms($phone_no, $sms);
+                            }
                         } else {
                             //payment is still pending, or user cancelled request
                             $message = "Thank you for shopping with us. However, the transaction could not be completed.";
@@ -355,7 +403,7 @@ function woocommerce_mpowerpayment_init() {
                         add_post_meta($wc_order_id, '_mpower_hash', $hash, true);
                     }
                     update_post_meta($wc_order_id, '_mpower_wc_message', $notification_message);
-                    
+
                     WC()->session->__unset('mpower_wc_hash_key');
                     WC()->session->__unset('mpower_wc_order_id');
 
@@ -370,41 +418,40 @@ function woocommerce_mpowerpayment_init() {
                 }
             }
         }
-		
-		
-		static function add_mpower_ghs_currency($currencies) {
-			$currencies['GHS'] = __('Ghana Cedi', 'woocommerce');
-			return $currencies;
-		}
 
-		static function add_mpower_ghs_currency_symbol($currency_symbol, $currency) {
-			switch (
-			$currency) {
-				case 'GHS': $currency_symbol = 'GHS ';
-					break;
-			}
-			return $currency_symbol;
-		}
+        static function add_mpower_ghs_currency($currencies) {
+            $currencies['GHS'] = __('Ghana Cedi', 'woocommerce');
+            return $currencies;
+        }
 
-		static function woocommerce_add_mpowerpayment_gateway($methods) {
-			$methods[] = 'WC_MPower';
-			return $methods;
-		}
+        static function add_mpower_ghs_currency_symbol($currency_symbol, $currency) {
+            switch (
+            $currency) {
+                case 'GHS': $currency_symbol = 'GHS ';
+                    break;
+            }
+            return $currency_symbol;
+        }
 
-		// Add settings link on plugin page
-		static function woocommerce_add_mpowerpayment_settings_link($links) {
-			$settings_link = '<a href="admin.php?page=wc-settings&tab=checkout&section=wc_mpower">Settings</a>';
-			array_unshift($links, $settings_link);
-			return $links;
-		}
+        static function woocommerce_add_mpowerpayment_gateway($methods) {
+            $methods[] = 'WC_MPower';
+            return $methods;
+        }
+
+        // Add settings link on plugin page
+        static function woocommerce_add_mpowerpayment_settings_link($links) {
+            $settings_link = '<a href="admin.php?page=wc-settings&tab=checkout&section=wc_mpower">Settings</a>';
+            array_unshift($links, $settings_link);
+            return $links;
+        }
 
     }
 
     $plugin = plugin_basename(__FILE__);
 
-	add_filter('woocommerce_currencies', array( 'WC_MPower', 'add_mpower_ghs_currency' ));
-	add_filter('woocommerce_currency_symbol', array( 'WC_MPower', 'add_mpower_ghs_currency_symbol' ), 10, 2);
-	
-    add_filter("plugin_action_links_$plugin", array( 'WC_MPower', 'woocommerce_add_mpowerpayment_settings_link' ));
-    add_filter('woocommerce_payment_gateways', array( 'WC_MPower', 'woocommerce_add_mpowerpayment_gateway' ));
+    add_filter('woocommerce_currencies', array('WC_MPower', 'add_mpower_ghs_currency'));
+    add_filter('woocommerce_currency_symbol', array('WC_MPower', 'add_mpower_ghs_currency_symbol'), 10, 2);
+
+    add_filter("plugin_action_links_$plugin", array('WC_MPower', 'woocommerce_add_mpowerpayment_settings_link'));
+    add_filter('woocommerce_payment_gateways', array('WC_MPower', 'woocommerce_add_mpowerpayment_gateway'));
 }
